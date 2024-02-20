@@ -99,7 +99,10 @@
 				}
 				
 				getStarted();
-				getComments();
+				
+				if ((userId != '') && (userId != undefined)) {
+					getComments();
+				}
 			});
 			
 			function getComments() {
