@@ -76,8 +76,16 @@ function getDelivery() {
 			}
 			
 			html += '</ul></dd>';
-			
 			html += '</dl> </div>';
+			
+			if (workshop) {
+				if (delivery.radiators != '') {
+					html += ' <div class="uk-margin-remove"> <ul uk-accordion> <li> ';
+					html += ' <a class="uk-accordion-title uk-text-uppercase uk-text-small" href>Radiators</a> <p class="uk-accordion-content"> ';
+					html += decodeURIComponent(delivery.radiators);
+					html += ' </p> </li> </ul> </div> ';
+				}
+			}
 			
 			html += '<div class="uk-flex uk-flex-center uk-margin-top">';
 			

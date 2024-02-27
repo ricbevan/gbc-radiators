@@ -28,6 +28,21 @@ let fields_radiators = 'id name updates(limit: 50) { body } group { title } colu
 let fields_pallets = 'id name column_values { id text ... on BoardRelationValue { display_value linked_item_ids } ... on MirrorValue { display_value } }';
 let fields_deliveries = 'id name column_values { id text ... on BoardRelationValue { display_value linked_item_ids } }';
 
+let workshop = false;
+
+document.addEventListener("DOMContentLoaded", function() {
+	if (!workshop) {
+		gbc('#workshop-navigation, .workshop-link').delete();
+	}
+});
+
+let non_radiator_codes = [
+	{ id: "feet", codes: [60682, 36645, 33645, 60680, 117613], name: 'Feet' },
+	{ id: "bracket", codes: [60378, 50802, 50813, 100850, 65846, 93772], name: 'Bracket' },
+	{ id: "half_tube", codes: [11354], name: '½ Tube' },
+	{ id: "full_tube", codes: [125237], name: 'Tube' }
+];
+
 // ==================================================
 // ==================== CLASSES =====================
 // ==================================================
@@ -232,7 +247,34 @@ class Radiator {
 		this.status = status;
 		this.icon = icon;
 		this.style = style;
+		
+		this.radiatorType = radiatorType(this.name);
+		this.radiatorTypeLabel = ((this.radiatorType != 'radiator') ? ' <span class="uk-label">' + non_radiator_codes.find(x => x['id'] === this.radiatorType).name + '</span>' : '');
+		
+		this.quantity = 1;
+		
+		if (this.name.split(' x ').length > 1) {
+			this.quantity = parseInt(this.name.split(' x ')[0]);
+		}
 	}
+}
+
+function radiatorType(code) {
+	var type = 'radiator';
+	
+	for (var i = 0; i < non_radiator_codes.length; i++) {
+		let nonRadiatorType = non_radiator_codes[i];
+		
+		if (String(code).split(' x ').length > 1) {
+			code = parseInt(String(code).split(' x ')[1]);
+		}
+		
+		if (nonRadiatorType.codes.includes(parseInt(code))) {
+			type = nonRadiatorType.id;
+		}
+	}
+	
+	return type;
 }
 
 class Radiators {
@@ -249,7 +291,7 @@ class Radiators {
 	}
 	
 	get all() {
-		this.#radiators.sort((a, b) => ((a.colour + a.name) > (b.colour + b.name)) ? 1 : -1);
+		this.#radiators.sort((a, b) => ((a.purchaseOrderName + a.colour + a.name) > (b.purchaseOrderName + b.colour + b.name)) ? 1 : -1);
 		return this.#radiators;
 	}
 }
@@ -270,10 +312,17 @@ class Updates {
 	constructor(data) {
 		let updates = data['data']['boards'][0]['updates'];
 		
+		// hide comments from system development
+		let updatesAfter = Date.parse('27 Feb 2024 00:00:00 GMT');
+		
 		for (var i = 0; i < updates.length; i++) {
 			let update = updates[i];
-			let newUpdate = new Update(update);
-			this.#updates.push(newUpdate);
+			let created = new Date(update.created_at);
+			
+			if (created > updatesAfter) {
+				let newUpdate = new Update(update);
+				this.#updates.push(newUpdate);
+			}
 		}
 	}
 	
@@ -339,8 +388,8 @@ function getRadiatorComments(radiatorId, func) {
 		
 		let radiator = radiators.all[0];
 		
-		let received = 'In on pallet ' + radiator.inPallet + ((radiator.received) ? ' (received)' : '');
-		let delivered = ((radiator.outPallet == undefined) ? 'Not sent' : ('Out on pallet ' + radiator.outPallet)) + ((radiator.deliveryTime != '') ? (' (sent on ' + fixDate(radiator.deliveryDate) + ')') : '');
+		let received = 'Pallet ' + radiator.inPallet + ((radiator.received) ? ' (received)' : '');
+		let delivered = ((radiator.outPallet == '') ? 'Not sent' : ('Pallet ' + radiator.outPallet)) + ((radiator.deliveryTime != '') ? (' (sent ' + fixDate(radiator.deliveryDate) + ')') : '');
 		
 		var html = '';
 		
@@ -380,6 +429,11 @@ function getRadiatorComments(radiatorId, func) {
 		
 		html += '<div> <div class="uk-grid-small" uk-grid>';
 		html += '<div class="uk-width-expand"> <button class="uk-button uk-button-primary uk-width-1-1" id="add-comment">Add Comment</button> </div>';
+		
+		if (workshop) {
+			html += '<div class="uk-width-auto"> <button class="uk-button uk-button-' + ((radiator.rejected) ? 'success' : 'danger') + '" id="toggle-reject-radiator">' + ((radiator.rejected) ? 'Accept' : 'Reject') + '</button> </div>';
+		}
+		
 		html += '</div> </div>';
 		html += '</div>';
 		
@@ -387,6 +441,14 @@ function getRadiatorComments(radiatorId, func) {
 		
 		gbc('#add-comment').on('click', function(e) {
 			addRadiatorComment(radiatorId, func);
+		});
+		
+		gbc('#toggle-reject-radiator').on('click', function(e) {
+			if (radiator.rejected) {
+				acceptRadiator(radiatorId, func);
+			} else {
+				rejectRadiator(radiatorId, func);
+			}
 		});
 	});
 }
@@ -406,5 +468,49 @@ function addRadiatorComment(radiatorId, func) {
 		} else {
 			UIkit.notification('No comment added', 'warning');
 		}
+	});
+}
+
+function rejectRadiator(radiatorId, func) {
+	UIkit.modal.prompt('Reason radiator is rejected:').then(function(update) {
+		if (update != null) {
+			let query = 'mutation { create_update (item_id: ' + radiatorId + ', body: "<p>' + userName + ' rejected because ' + update + '</p>") { id } }';
+			
+			mondayAPI(query, function(data) {
+				let radiatorColumnJson = JSON.stringify(' { "' + id_radiatorBoardRejected + '" : { "checked" : "true" } } ');
+				let query2 = ' mutation { change_multiple_column_values(item_id: ' + radiatorId + ', board_id: ' + id_radiatorBoard + ', column_values: ' + radiatorColumnJson + ') { id } } ';
+				
+				mondayAPI(query2, function(data) {
+					UIkit.notification('Radiator rejected', 'success');
+					
+					setTimeout(function() {
+						func();
+					}, 100);
+				});
+			});
+		} else {
+			UIkit.notification('Radiator not rejected', 'warning');
+		}
+	});
+}
+
+function acceptRadiator(radiatorId, func) {
+	UIkit.modal.confirm('Are you sure you want to remove the rejection from this radiator?').then(function() {
+		let query = 'mutation { create_update (item_id: ' + radiatorId + ', body: "<p>' + userName + ' approved</p>") { id } }';
+		
+		mondayAPI(query, function(data) {
+			let radiatorColumnJson = JSON.stringify(' { "' + id_radiatorBoardRejected + '" : null } ');
+			let query2 = ' mutation { change_multiple_column_values(item_id: ' + radiatorId + ', board_id: ' + id_radiatorBoard + ', column_values: ' + radiatorColumnJson + ') { id } } ';
+			
+			mondayAPI(query2, function(data) {
+				UIkit.notification('Radiator is no longer rejected', 'success');
+				
+				setTimeout(function() {
+					func();
+				}, 100);
+			});
+		});
+	}, function () {
+		UIkit.notification('Radiator remains rejected', 'warning');
 	});
 }

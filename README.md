@@ -1,1 +1,1 @@
-# gbc-workshop
+# gbc-radiators

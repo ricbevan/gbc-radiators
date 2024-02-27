@@ -36,7 +36,7 @@ function getPurchaseOrders() {
 function getPurchaseOrderRadiators() {
 	let purchaseOrderId = gbc('#goods-in-date').val();
 	
-	let query = ' { boards(ids: [' + id_radiatorBoard + ']) { items_page( query_params: { rules: [{column_id: "group", compare_value: ["' + purchaseOrderId + '"], operator:any_of}] }) { items { ' + fields_radiators + ' } } } } ';
+	let query = ' { boards(ids: [' + id_radiatorBoard + ']) { items_page( limit: 500, query_params: { rules: [{column_id: "group", compare_value: ["' + purchaseOrderId + '"], operator:any_of}] }) { items { ' + fields_radiators + ' } } } } ';
 	
 	mondayAPI(query, function(data) {
 		let radiators = new Radiators(data);
@@ -51,15 +51,20 @@ function getPurchaseOrderRadiators() {
 		for (var i = 0; i < radiators.all.length; i++) {
 			let radiator = radiators.all[i];
 			
-			let received = '<span uk-icon="icon: arrow-right"></span> In on pallet ' + radiator.inPallet + ((radiator.received) ? ' (received)' : '');
-			let delivered = '<span uk-icon="icon: arrow-left"></span> ' + ((radiator.outPallet == undefined) ? 'Not sent' : ('Out on pallet ' + radiator.outPallet)) + ((radiator.deliveryTime != '') ? (' (sent on ' + fixDate(radiator.deliveryDate) + ')') : '');
+			let received = '<span uk-icon="icon: arrow-right"></span> Pallet ' + radiator.inPallet + ((radiator.received) ? ' (received)' : '');
+			let delivered = '<span uk-icon="icon: arrow-left"></span> ' + ((radiator.outPallet == '') ? 'Not sent' : ('Pallet ' + radiator.outPallet)) + ((radiator.deliveryTime != '') ? (' (sent ' + fixDate(radiator.deliveryDate) + ')') : '');
 			
 			html += '<li data-colour="' + alphanumeric(radiator.colour) + '" data-pallet="' + alphanumeric(radiator.inPallet) + '">';
 			html += '<div class="uk-flex uk-flex-middle" uk-grid>';
-			html += '<div class="uk-width-expand">';
+			html += '<div class="uk-width-expand" uk-grid>';
+			html += '<div class="uk-width-auto">';
 			html += '<p class="uk-margin-remove">[' + radiator.colour + '] ' + radiator.name + '</p>';
 			html += '<p class="uk-text-light uk-text-small uk-margin-remove">' + received + '</p>';
 			html += '<p class="uk-text-light uk-text-small uk-margin-remove">' + delivered + '</p>';
+			html += '</div>';
+			html += '<div class="uk-flex uk-flex-middle uk-margin-remove">';
+			html += radiator.radiatorTypeLabel;
+			html += '</div>';
 			html += '</div>';
 			html += '<div class="uk-width-auto">';
 			html += '<span uk-icon="' + radiator.icon + '" uk-tooltip="' + radiator.status + '" id="' + radiator.id + '" class="radiator-info ' + radiator.style + '"></span>';
