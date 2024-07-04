@@ -9,7 +9,7 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 
 function getPallets() {
-	let query = ' { boards (ids: [' + id_palletBoard + ']) { items_page (limit: 500) { items { ' + fields_pallets + ' } } } } ';
+	let query = ' { boards (ids: [' + id_palletBoard + ']) { items_page(limit: 500 query_params: {order_by: [{column_id:"numbers" direction: desc}]}) { items { id name } } } } ';
 	
 	mondayAPI(query, function(data) {
 		let pallets = new Pallets(data);
