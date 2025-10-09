@@ -10,7 +10,9 @@ document.addEventListener("DOMContentLoaded", function() {
 
 function getDeliveries() {
 	// let query = ' { boards(ids:' + id_deliveryBoard + ') { items_page (limit:500, query_params: { rules: [ { column_id : "' + id_deliveryBoardSignature + '", compare_value: [null], operator: is_not_empty } ] } ) { items { ' + fields_deliveries + ' } } } } ';
-	let query = ' { boards(ids:' + id_deliveryBoard + ') { items_page (limit:500, query_params: { rules: [ { column_id : "' + id_deliveryBoardSignature + '", compare_value: [""], operator: is_not_empty }, {column_id: "date", compare_value: ["TODAY"], operator: greater_than_or_equals } ], operator: or } ) { items { ' + fields_deliveries + ' } } } } ';
+	let query = ' { boards(ids:' + id_deliveryBoard + ') { items_page (limit:500, query_params: { order_by:[{column_id:"date" direction:desc}] rules: [ { column_id : "' + id_deliveryBoardSignature + '", compare_value: [""], operator: is_not_empty }, {column_id: "date", compare_value: ["TODAY"], operator: greater_than_or_equals } ], operator: or } ) { items { ' + fields_deliveries + ' } } } } ';
+	
+	console.log(query);
 	
 	mondayAPI(query, function(data) {
 		let deliveries = new Deliveries(data);
